@@ -3,6 +3,11 @@ import argparse
 import csv
 from datetime import datetime
 import os  # 用于检查文件是否存在
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 
 # 1. 核心计算函数 (逻辑保持纯粹)
 def calculate_compound_interest(principal, rate, years):
@@ -39,6 +44,42 @@ def save_to_csv(data, filename="history.csv"):
         # 2. 写入本次计算的数据
         writer.writerow(data)
 
+def send_email_with_attachment(filename, target_email):
+    # 1. 配置邮箱服务器信息
+    smtp_server = "smtp.qq.com"  # 如果是腾讯企业邮用 smtp.exmail.qq.com
+    smtp_port = 465
+    sender_email = "3628399223@qq.com" 
+    password = "ttanhnlaslocdacc"  # 注意：不是登录密码！
+
+    # 2. 构建邮件容器
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = target_email
+    msg['Subject'] = f"🚀 财富复利计算报告 - {datetime.now().strftime('%Y-%m-%d')}"
+
+    # 邮件正文
+    body = "您好！这是您最新的财富复利计算历史记录，请查收附件。"
+    msg.attach(MIMEText(body, 'plain'))
+
+    # 3. 添加附件 (history.csv)
+    try:
+        with open(filename, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f"attachment; filename={filename}")
+        msg.attach(part)
+
+        # 4. 连接服务器并发送
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        server.login(sender_email, password)
+        server.sendmail(sender_email, target_email, msg.as_string())
+        server.quit()
+        print(f"📧 邮件已成功发送至 {target_email}")
+    except Exception as e:
+        print(f"⚠️ 邮件发送失败: {e}")
+
 # 2. 核心 CLI 入口 (彻底移除 run_wealth_model 与所有 input 语句)
 def main():
     parser = argparse.ArgumentParser(description="🚀 专业财富复利 CLI 工具")
@@ -52,7 +93,8 @@ def main():
     parser.add_argument("--price", type=float, help="当前市场价格")
     parser.add_argument("--compare_rates", type=float, nargs="+", help="输入多个利率进行对比")
     parser.add_argument("--currency", choices=["CNY", "USD", "EUR"], default="CNY")
-    
+    parser.add_argument("--send", help="输入收件人邮箱，自动发送历史报告")
+
     args = parser.parse_args()
     
     # 3. 计算与输出 (直接读取 args 参数)
@@ -96,6 +138,8 @@ def main():
         print(f"✅ 计算结果已同步至 history.csv")
     except Exception as e:
         print(f"⚠️ 写入日志失败: {e}")
+    if args.send:
+        send_email_with_attachment("history.csv", args.send)
 
 
 # 5. 唯一合法的程序入口 (必须缩进调用 main)
