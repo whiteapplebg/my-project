@@ -1,5 +1,8 @@
 import numpy as np
 import argparse
+import csv
+from datetime import datetime
+import os  # 用于检查文件是否存在
 
 # 1. 核心计算函数 (逻辑保持纯粹)
 def calculate_compound_interest(principal, rate, years):
@@ -17,6 +20,24 @@ def check_safety_margin(intrinsic_value, current_price):
         print(f"✅ 发现安全边际: {margin:.1%}. 这是一个格雷厄姆式的机会！")
     else:
         print(f"⚠️ 当前安全边际仅为 {margin:.1%}. 可能需要更深入的分析。")
+
+def save_to_csv(data, filename="history.csv"):
+    """
+    将计算结果追加到 CSV 文件中
+    data: 包含 [时间, 本金, 利率, 年限, 结果, 币种] 的列表
+    """
+    file_exists = os.path.isfile(filename)
+    
+    # 使用 'a' 模式（append）追加写入，newline='' 防止空行
+    with open(filename, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # 1. 如果是第一次创建文件，写入表头
+        if not file_exists:
+            writer.writerow(["记录时间", "初始本金", "年化利率", "投资年限", "最终财富", "币种"])
+        
+        # 2. 写入本次计算的数据
+        writer.writerow(data)
 
 # 2. 核心 CLI 入口 (彻底移除 run_wealth_model 与所有 input 语句)
 def main():
@@ -58,6 +79,25 @@ def main():
         for r in args.compare_rates:
             alt_amount = calculate_compound_interest(args.principal, r, args.years)
             print(f"利率 {r:.1%}: {alt_amount:,.2f} {args.currency}")
+    # 准备要存入的数据包
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_data = [
+        current_time, 
+        args.principal, 
+        f"{args.rate:.1%}", 
+        args.years, 
+        f"{final_amount:.2f}", 
+        args.currency
+    ]
+    
+    # 执行保存
+    try:
+        save_to_csv(log_data)
+        print(f"✅ 计算结果已同步至 history.csv")
+    except Exception as e:
+        print(f"⚠️ 写入日志失败: {e}")
+
+
 # 5. 唯一合法的程序入口 (必须缩进调用 main)
 if __name__ == "__main__":
     main()
